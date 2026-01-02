@@ -3,20 +3,19 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bixma361f4yqf"
-path.s3tc="res://.godot/imported/Mia_Body_BaseColor_v02.png-1cb0aaf60d2a5cefee1472d0f2e46dff.s3tc.ctex"
+path="res://.godot/imported/Mia_Body_BaseColor_v02.png-1cb0aaf60d2a5cefee1472d0f2e46dff.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://anime-girl-mia-ter-excited-preview 2/textures/Mia_Body_BaseColor_v02.png"
-dest_files=["res://.godot/imported/Mia_Body_BaseColor_v02.png-1cb0aaf60d2a5cefee1472d0f2e46dff.s3tc.ctex"]
+dest_files=["res://.godot/imported/Mia_Body_BaseColor_v02.png-1cb0aaf60d2a5cefee1472d0f2e46dff.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=3
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

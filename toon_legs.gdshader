@@ -1,46 +1,34 @@
 shader_type spatial;
+// depth_prepass_alpha = Alpha Hash (Smooth dithering, no Z-fighting)
+render_mode cull_disabled, depth_prepass_alpha;
 
-// 1. INPUTS
 uniform sampler2D main_texture : source_color;
 uniform sampler2D toon_ramp : source_color;
 uniform vec4 tint_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 
-// 2. RIM LIGHT
+// Specific control for the fishnets
+uniform float alpha_threshold : hint_range(0.0, 1.0) = 0.1;
+
+// Rim Light settings
 uniform float rim_amount : hint_range(0.0, 1.0) = 0.5;
 uniform float rim_sharpness : hint_range(0.0, 5.0) = 2.0;
 
 void fragment() {
-    // Get the color from your texture
     vec4 albedo_tex = texture(main_texture, UV);
     ALBEDO = albedo_tex.rgb * tint_color.rgb;
+    ALPHA = albedo_tex.a; // Let the engine handle the hashing automatically
 }
 
 void light() {
-    // ---------------------------------------------------------
-    // THE MATH (The "Dot Product" trick)
-    // ---------------------------------------------------------
-    
-    // Calculate the angle between the light and the surface
+    // Exact same lighting logic as the body
     float dot_product = dot(NORMAL, LIGHT);
-    
-    // Convert that range to 0.0 -> 1.0 so we can read the texture
     float sample_pos = (dot_product + 1.0) / 2.0;
-    
-    // Clamp it slightly to avoid weird artifacts
     sample_pos = clamp(sample_pos, 0.05, 0.95);
-    
-    // Read the color from your Gradient Ramp based on the light angle
     vec3 ramp_color = texture(toon_ramp, vec2(sample_pos, 0.0)).rgb;
     
-    // ---------------------------------------------------------
-    // RIM LIGHT
-    // ---------------------------------------------------------
     float rim_dot = 1.0 - dot(VIEW, NORMAL);
     float rim = pow(rim_dot, rim_sharpness) * rim_amount * dot_product; 
     
-    // ---------------------------------------------------------
-    // COMBINE IT ALL
-    // ---------------------------------------------------------
     vec3 final_light = LIGHT_COLOR * ramp_color * ATTENUATION;
     final_light += vec3(rim);
     

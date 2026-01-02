@@ -124,60 +124,19 @@ func _input(event):
 					if menu_panel and menu_panel.visible:
 						menu_panel.visible = false
 	
-	# Handle clicks outside menu to close it
-	if menu_panel and menu_panel.visible:
+	# Handle clicks outside menu to close it (but not when clicking on character or in targeting mode)
+	if menu_panel and menu_panel.visible and state != "targeting":
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			# Check if click is outside the menu panel
 			var mouse_pos = event.position
 			var menu_rect = Rect2(menu_panel.position, menu_panel.size)
 			if not menu_rect.has_point(mouse_pos):
 				# Clicked outside menu - close it
+				# (Character clicks are handled separately via Area3D, so this won't interfere)
 				menu_panel.visible = false
-				get_viewport().set_input_as_handled()
-				return
 	
-	# LOGIC FOR SETTING TARGET (Only works when in Target Mode, which is set by Fetch button)
-	# This detects the click on the "Desktop" (which is actually our transparent window)
-	if state == "targeting" and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		# Make sure we didn't click on the menu
-		if menu_panel and menu_panel.visible:
-			return
-		
-		print("Target Set!")
-		
-		# 1. Raycast Math: Find where the mouse touched the "floor"
-		var camera = get_viewport().get_camera_3d()
-		if not camera:
-			return
-			
-		# Use character's current Y position for the plane
-		var character_y = global_position.y
-		var drop_plane = Plane(Vector3.UP, character_y)
-		var mouse_pos = event.position
-		
-		var ray_origin = camera.project_ray_origin(mouse_pos)
-		var ray_normal = camera.project_ray_normal(mouse_pos)
-		
-		# Calculate the intersection point
-		var intersection = drop_plane.intersects_ray(ray_origin, ray_normal)
-		
-		if intersection:
-			# Make sure the target is in front of the camera
-			var to_intersection = intersection - camera.global_position
-			var camera_forward = -camera.transform.basis.z
-			
-			# Only accept targets that are in front of the camera
-			if to_intersection.dot(camera_forward) > 0:
-				# Set target at character's Y level
-				target_position = Vector3(intersection.x, character_y, intersection.z)
-				
-				print("Target set to: ", target_position, " from position: ", global_position)
-				
-				# 2. Start Walking
-				state = "walking"
-				anim.play("custom/walk", 0.5)
-			else:
-				print("Target rejected: behind camera")
+	# NOTE: Target setting is now handled by main.gd calling set_target_from_click() directly
+	# This avoids conflicts when the window is fullscreen and screen coordinates change
 
 func _on_character_clicked(_camera, event, _click_pos, _normal, _shape_idx):
 	# LOGIC FOR CLICKING THE GIRL
@@ -217,8 +176,10 @@ func _on_character_clicked(_camera, event, _click_pos, _normal, _shape_idx):
 						anim.get_animation("mixamo_com").loop_mode = Animation.LOOP_LINEAR
 					state = "idle"
 			else:
-				# It was a drag - don't show menu
-				print("Character was dragged, menu not shown. is_dragging: ", is_dragging, " Distance: ", drag_distance)
+				# It was a drag - close menu if it's open and don't show menu
+				if menu_panel and menu_panel.visible:
+					menu_panel.visible = false
+				print("Character was dragged, menu closed. is_dragging: ", is_dragging, " Distance: ", drag_distance)
 			
 			# Reset drag state
 			is_dragging = false
@@ -282,7 +243,7 @@ func _setup_popup_menu():
 		print("ERROR: menu_panel is null after setup!")
 
 func _update_menu_position():
-	# Position menu near character on screen
+	# Position menu near character on screen, ensuring it never overlaps the character
 	if not menu_panel:
 		return
 		
@@ -290,14 +251,45 @@ func _update_menu_position():
 	if not camera:
 		return
 		
-	# Get character's screen position
-	var character_screen_pos = camera.unproject_position(global_position + Vector3(0, 2, 0))
+	# Estimate character height in world space (adjust this value based on your character's actual height)
+	var character_world_height = 1.6
 	
-	# Position menu above character
+	# Calculate the top of the character in world space (accounting for current scale)
+	var character_top_world = global_position + Vector3(0, character_world_height * scale.y, 0)
+	
+	# Project both the character's base and top positions to screen space
+	var character_base_screen = camera.unproject_position(global_position)
+	var character_top_screen = camera.unproject_position(character_top_world)
+	
+	# Calculate the character's height in screen space for bounds checking
+	var character_screen_height = abs(character_top_screen.y - character_base_screen.y)
+	
+	var padding = 20.0  # Padding to ensure no overlap
 	var viewport_size = get_viewport().get_visible_rect().size
-	menu_panel.position = character_screen_pos - Vector2(menu_panel.size.x / 2, menu_panel.size.y + 20)
 	
-	# Clamp to viewport bounds
+	# Try positioning above the character first
+	var menu_x_position = character_top_screen.x - menu_panel.size.x / 2
+	var menu_y_position = character_top_screen.y - menu_panel.size.y - padding
+	
+	# Verify menu bottom is safely above character top
+	var menu_bottom_y = menu_y_position + menu_panel.size.y
+	if menu_bottom_y > character_top_screen.y - padding or menu_y_position < 0:
+		# Not enough room above - position to the right side
+		var horizontal_offset = max(character_screen_height * 0.6, 100.0) + padding
+		menu_x_position = character_top_screen.x + horizontal_offset
+		menu_y_position = character_top_screen.y - menu_panel.size.y / 2
+		
+		# If that goes off screen, try left side
+		if menu_x_position + menu_panel.size.x > viewport_size.x:
+			menu_x_position = character_top_screen.x - menu_panel.size.x - horizontal_offset
+			# If left side also doesn't fit, center horizontally and position below
+			if menu_x_position < 0:
+				menu_x_position = clamp(character_top_screen.x - menu_panel.size.x / 2, 0, viewport_size.x - menu_panel.size.x)
+				menu_y_position = character_base_screen.y + padding
+	
+	menu_panel.position = Vector2(menu_x_position, menu_y_position)
+	
+	# Clamp to viewport bounds (final safety check)
 	menu_panel.position.x = clamp(menu_panel.position.x, 0, viewport_size.x - menu_panel.size.x)
 	menu_panel.position.y = clamp(menu_panel.position.y, 0, viewport_size.y - menu_panel.size.y)
 
@@ -335,7 +327,7 @@ func _on_fetch_button_pressed():
 		main_node.set_window_mode("fullscreen")
 
 func set_target_from_click(screen_pos: Vector2):
-	# FIX THE RAYCAST: Create a Plane and project a ray from the camera
+	# Set target from screen click position (called by main.gd when in fetch mode)
 	var camera = get_viewport().get_camera_3d()
 	if not camera:
 		return
@@ -345,6 +337,7 @@ func set_target_from_click(screen_pos: Vector2):
 	var drop_plane = Plane(Vector3.UP, character_y)
 	
 	# Project a ray from the camera using project_ray_origin and project_ray_normal
+	# screen_pos is already in viewport coordinates, so use it directly
 	var ray_origin = camera.project_ray_origin(screen_pos)
 	var ray_normal = camera.project_ray_normal(screen_pos)
 	
@@ -361,10 +354,16 @@ func set_target_from_click(screen_pos: Vector2):
 			# Set target_position to this 3D point (keep Y at character's level)
 			target_position = Vector3(intersection.x, character_y, intersection.z)
 			
-			print("Target set to: ", target_position)
+			print("Target set to: ", target_position, " from screen_pos: ", screen_pos, " from character position: ", global_position)
 			
-			# Start Walking
+			# Close menu if open
+			if menu_panel and menu_panel.visible:
+				menu_panel.visible = false
+			
+			# Exit targeting mode and start walking
 			state = "walking"
 			anim.play("custom/walk", 0.5)
 		else:
 			print("Target rejected: behind camera")
+	else:
+		print("No intersection found for screen_pos: ", screen_pos)
