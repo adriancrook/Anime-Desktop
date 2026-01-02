@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3 uid="uid://dlyyojxi66wtm"]
+
+[ext_resource type="Script" uid="uid://cqkvcrl1xhukq" path="res://main.gd" id="1_0xm2m"]
+[ext_resource type="PackedScene" uid="uid://b5e5rf2x5seoe" path="res://Character.tscn" id="1_ig7tw"]
+
+[sub_resource type="Environment" id="Environment_ig7tw"]
+background_mode = 3
+
+[node name="Main" type="Node3D" groups=["Main"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.09221482)
+script = ExtResource("1_0xm2m")
+
+[node name="Excited" parent="." instance=ExtResource("1_ig7tw")]
+
+[node name="Camera3D" type="Camera3D" parent="." groups=["MainCamera"]]
+transform = Transform3D(0.99972534, 0.0029659206, -0.023249207, 0.0010039438, 0.98563135, 0.16890779, 0.023416111, -0.16888475, 0.9853576, -0.025520623, 1.0595316, 1.2460672)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.9969757, -0.067299835, -0.03886213, 0.052615035, 0.9525517, -0.29979476, 0.057194326, 0.29684335, 0.9532119, 0.065160304, 0.5701065, 0.43903327)
+shadow_enabled = true
+directional_shadow_max_distance = 50.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_ig7tw")
