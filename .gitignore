@@ -1,5 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
-MiaMascot1.exe
+
+# Executable files (too large for GitHub)
+*.exe
+
+# OS files
 .DS_Store
